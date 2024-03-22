@@ -119,4 +119,74 @@ return match &request_line[..] {
     };
 ``` 
 
-- Penambahan tersebut bertujuan untuk menambahkan durasi 10 detik untuk program dapat bekerja kembali. Hal ini tidak dapat menangani banyaknay request yang concurrent karena program single threaded.
+- Penambahan tersebut bertujuan untuk menambahkan durasi 10 detik untuk program dapat bekerja kembali. Hal ini tidak dapat menangani banyaknya request yang concurrent karena program single threaded.
+
+## Commit 5 Reflection notes
+- Untuk dapat melakukan multithreading kita dapat menggunakan Threadpool untuk mengelola proses yang banyak. 
+```rust
+// src/main.rs
+let pool = ThreadPool::new(4);
+    for stream in listener.incoming() {
+        let stream = stream.unwrap();
+        pool.execute(|| {
+            handle_connection(stream);
+        });
+    }
+
+// lib.rs
+pub struct ThreadPool {
+    workers: Vec<Worker>,
+    sender: mpsc::Sender<Job>,
+}
+
+type Job = Box<dyn FnOnce() + Send + 'static>;
+
+impl ThreadPool {
+    pub fn new(size: usize) -> ThreadPool {
+        assert!(size > 0);
+
+        let (sender, receiver) = mpsc::channel();
+        let receiver = Arc::new(Mutex::new(receiver));
+
+        let mut workers = Vec::with_capacity(size);
+
+        for id in 0..size {
+            workers.push(Worker::new(id, Arc::clone(&receiver)));
+        }
+
+        ThreadPool { workers, sender }
+    }
+    pub fn execute<F>(&self, f: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        let job = Box::new(f);
+        self.sender.send(job).unwrap();
+    }
+}
+```
+- Selanjutnya, kita juga memerlukan Worker. Saat ThreadPool dibuat, itu juga membuat sejumlah thread worker sejumlah yang ditentukan oleh ukuran ThreadPool. Setiap worker memiliki loop yang akan terus berjalan selama aplikasi berjalan.
+
+```rust
+struct Worker {
+    id: usize,
+    thread: thread::JoinHandle<()>,
+}
+
+impl Worker {
+    fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
+        let thread = thread::spawn(move || loop {
+            let job = receiver.lock().unwrap().recv().unwrap();
+            println!("Worker {id} got a job; executing.");
+            job();
+        });
+        Worker { id, thread }
+    }
+}
+```
+
+- Saat memanggil metode execute pada ThreadPool dengan tugas tertentu, tugas tersebut dibungkus dalam sebuah Job yang kemudian dikirim menggunakan Sender. Salah satu worker thread yang tersedia akan menerima tugas tersebut melalui Receiver.
+
+- Setelah worker thread menerima tugas Kita memanggil lock pada receiver untuk mendapatkan mutex. Setelah itu, kita memanggil recv untuk menerima Job. Pemanggilan ke recv diblokir, jika belum ada pekerjaan, thread saat ini akan menunggu hingga pekerjaan tersedia. Mutex<T> memastikan bahwa hanya satu thread Pekerja pada satu waktu yang mencoba meminta pekerjaan
+
+- Saat selesai dieksekusi, worker thread akan kembali ke loop untuk menunggu tugas selanjutnya yang akan diterima.
