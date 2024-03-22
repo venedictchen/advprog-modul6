@@ -22,4 +22,4 @@
     - Lalu, response akan dibentuk dengan format yang sesuai dengan `status_line`, `Content-length`, `contents` yang sudah kita buat sebelumnya dalam bentuk HTTP response.
     - Terakhir, menggunakan `stream.write_all()`, kita akan mengembalikan ke TCP dengan konversi menjadi bentuk bytes. Jika terjadi error, `unwrap()` akan menyebabkan panic dan menghentikan program.
 
-    ![](/public/images/commit2.png)  
+![](/public/images/commit2.png)  
