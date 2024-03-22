@@ -190,3 +190,6 @@ impl Worker {
 - Setelah worker thread menerima tugas Kita memanggil lock pada receiver untuk mendapatkan mutex. Setelah itu, kita memanggil recv untuk menerima Job. Pemanggilan ke recv diblokir, jika belum ada pekerjaan, thread saat ini akan menunggu hingga pekerjaan tersedia. Mutex<T> memastikan bahwa hanya satu thread Pekerja pada satu waktu yang mencoba meminta pekerjaan
 
 - Saat selesai dieksekusi, worker thread akan kembali ke loop untuk menunggu tugas selanjutnya yang akan diterima.
+
+## Commit Bonus Reflection notes
+- Pada bagian ini kita melakukan improvement di bagian implementasi pembuatan ThreadPool. Kita menggunakan `build` daripada `new`. Kita juga mengganti assertion dengan conditional check untuk ukuran yang terlalu kecil. Hal ini akan membuat error dapat lebih diidentifikasi. Build akan mengembalikan bentuk Result yang nantinya akan diunwrap untuk mendapatkan valuenya.
