@@ -22,4 +22,65 @@
     - Lalu, response akan dibentuk dengan format yang sesuai dengan `status_line`, `Content-length`, `contents` yang sudah kita buat sebelumnya dalam bentuk HTTP response.
     - Terakhir, menggunakan `stream.write_all()`, kita akan mengembalikan ke TCP dengan konversi menjadi bentuk bytes. Jika terjadi error, `unwrap()` akan menyebabkan panic dan menghentikan program.
 
-![](/public/images/commit2.png)  
+![](/public/images/commit2.png)
+
+## Commit 3 Reflection notes
+- Pada commit ini, saya menambahkan error page, yaitu `404.html`. 
+```HTML
+<!DOCTYPE html>
+<html lang="en">
+ <head>
+ <meta charset="utf-8"> <title>Oops!</title>
+ </head> 
+ <body> 
+    <h1>Oops!</h1> 
+    <p>Sorry, I don't know what you're asking for.</p>
+    <p>Hi from Rust, running from venedictchen's machine.</p>
+ </body>
+</html>
+```
+- Lalu, saya mengubah bagian `handle_connection` agar jika user memberikan page yang tidak dikenali, maka akan memunculkan `404.html`. 
+```rust
+fn handle_connection(mut stream:TcpStream){
+    let buf_reader = BufReader::new(&mut stream);
+    let http_request:Vec<_> = buf_reader
+    .lines()
+    .map(|result|result.unwrap())
+    .take_while(|line|!line.is_empty()) 
+    .collect();
+
+
+    if http_request.is_empty(){
+        return;
+    }
+    
+    let request_line = http_request.get(0).unwrap();
+    let response = generate_response(request_line);
+
+    stream.write_all(response.as_bytes()).unwrap();
+    
+}
+
+fn generate_response(request_line: &str) -> String {
+    let get = "GET / HTTP/1.1"; 
+    let (status_line, filename) = if request_line == get {
+        ("HTTP/1.1 200 OK", "hello.html")
+    } else {
+        ("HTTP/1.1 404 NOT FOUND", "404.html")
+    };
+
+    let contents = fs::read_to_string(filename).unwrap();
+    let length = contents.len();
+    format!(
+        "{status_line}\r\nContent-Length: {length}\r\n\r\n{contents}",
+    )
+}
+
+```
+
+- Di sini, saya juga melakukan refactor, menjadi fungsi `generate_response()`. Hal ini bertujuan agar setiap fungsi memiliki tugasnya masing-masing.
+
+- Bagian `let request_line = http_request.get(0).unwrap();` akan membaca request yang diminta. Setelah itu akan dilakukan pengecekan dan memberikan `status_line` dan `filename` yang akan diberikan ke `contents` dan format String yang akan kita berikan.
+- Setelah berhasil `generate_response()` maka `stream.write_all()` akan mengembalikan ke TCP dengan konversi menjadi bentuk bytes. Jika terjadi error, `unwrap()` akan menyebabkan panic dan menghentikan program.
+
+![](/public/images/commit3.png)
